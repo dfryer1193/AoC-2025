@@ -63,7 +63,6 @@ func processRange(r string) int {
 		secondHalf := numStr[mid:]
 
 		if firstHalf == secondHalf {
-			fmt.Printf("Found matching number: %d\n", i)
 			sum += i
 		}
 	}
