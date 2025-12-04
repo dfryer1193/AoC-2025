@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 )
 
 func main() {
@@ -37,15 +38,19 @@ func main() {
 // peakJoltage finds the maximum twelve digit number that can be formed from the input string.
 func peakJoltage(n string) uint64 {
 	accumulator := uint64(0)
-	peakIdx := 0
+	lpeakIdx := 0
 
-	for i := 12; i >= 0; i-- {
-		peak := '0'
-		for j, c := range n[peakIdx : len(n)-i] {
-			if c > peak {
-				peak = c
-				j = peakIdx // This is wrong
+	for i := 11; i >= 0; i-- {
+		lmax := byte('0')
+		for j := lpeakIdx; j <= len(n)-i-1; j++ {
+			if n[j] > lmax {
+				lmax = n[j]
+				lpeakIdx = j + 1
 			}
 		}
+		val, _ := strconv.Atoi(string(lmax))
+		accumulator = accumulator*10 + uint64(val)
 	}
+
+	return accumulator
 }
