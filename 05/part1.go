@@ -47,7 +47,6 @@ func main() {
 				fmt.Println("Error parsing freshness range:", err)
 				return
 			}
-			fmt.Printf("Parsed freshness range: min=%d, max=%d\n", min, max)
 			ranges = append(ranges, [2]int{min, max})
 		case parsingItemIDs:
 			id, err := parseItemID(line)
@@ -55,9 +54,7 @@ func main() {
 				fmt.Println("Error parsing item ID:", err)
 				return
 			}
-			fmt.Printf("Parsed item ID: %d\n", id)
 			if isFresh(id, ranges) {
-				fmt.Printf("Item ID %d is fresh.\n", id)
 				freshItemCount++
 			}
 		}
