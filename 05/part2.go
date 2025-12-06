@@ -42,14 +42,7 @@ func main() {
 		ranges = append(ranges, [2]int{min, max})
 	}
 
-	for {
-		merged, mergecount := mergeRanges(ranges)
-		if mergecount == 0 {
-			break
-		}
-
-		ranges = merged
-	}
+	ranges = mergeRanges(ranges)
 
 	for _, r := range ranges {
 		freshItemCount += r[1] - r[0] + 1
@@ -68,15 +61,14 @@ func parseFreshnessRange(line string) (int, int, error) {
 	return min, max, nil
 }
 
-func mergeRanges(ranges [][2]int) ([][2]int, int) {
+func mergeRanges(ranges [][2]int) [][2]int {
 	if len(ranges) == 0 {
-		return ranges, 0
+		return ranges
 	}
 	// Sort ranges by start so a single linear pass can merge all overlaps
 	sort.Slice(ranges, func(i, j int) bool { return ranges[i][0] < ranges[j][0] })
 
 	merged := make([][2]int, 0, len(ranges))
-	mergecount := 0
 
 	cur := ranges[0]
 	for i := 1; i < len(ranges); i++ {
@@ -90,9 +82,9 @@ func mergeRanges(ranges [][2]int) ([][2]int, int) {
 			if r[1] > cur[1] {
 				cur[1] = r[1]
 			}
-			mergecount++
 		}
 	}
 	merged = append(merged, cur)
-	return merged, mergecount
+
+	return merged
 }
