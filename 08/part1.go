@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -31,14 +32,43 @@ func (j *junction) distanceTo(other *junction) float64 {
 	return math.Sqrt(dx + dy + dz)
 }
 
+type pair struct {
+	a, b     *junction
+	distance float64
+}
+
+// DSU (Disjoint Set Union) functions
+func find(parents map[string]string, key string) string {
+	if parents[key] == key {
+		return key
+	}
+	parents[key] = find(parents, parents[key]) // Path compression
+	return parents[key]
+}
+
+func union(parents map[string]string, a, b string) {
+	rootA := find(parents, a)
+	rootB := find(parents, b)
+	if rootA != rootB {
+		parents[rootB] = rootA
+	}
+}
+
 func main() {
 	args := os.Args[1:]
-	if len(args) < 1 {
-		fmt.Println("Please provide an input filename.")
+	if len(args) < 2 {
+		fmt.Println("Usage: go run part1.go <filename> <connections_to_make>")
 		return
 	}
 
 	filename := args[0]
+	limitStr := args[1]
+	mergeLimit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		fmt.Println("Error: Invalid number for connections to make:", err)
+		return
+	}
+
 	f, err := os.Open(filename)
 	if err != nil {
 		fmt.Println("Error opening file:", err)
@@ -46,8 +76,8 @@ func main() {
 	}
 	defer f.Close()
 
-	junctions := make(map[string]*junction, 0)
-	circuits := make([]map[string]*junction, 0)
+	junctions := make([]*junction, 0)
+	junctionMap := make(map[string]*junction)
 
 	scanner := bufio.NewScanner(f)
 	for i := 0; scanner.Scan(); i++ {
@@ -62,71 +92,80 @@ func main() {
 		y, _ := strconv.Atoi(coords[1])
 		z, _ := strconv.Atoi(coords[2])
 
+		key := buildKey(x, y, z)
+		if _, ok := junctionMap[key]; ok {
+			continue
+		}
+
 		j := &junction{
-			x:               x,
-			y:               y,
-			z:               z,
-			key:             buildKey(x, y, z),
-			closestDistance: math.MaxFloat64,
-			closestNeighbor: nil,
+			x:   x,
+			y:   y,
+			z:   z,
+			key: key,
 		}
-		if _, ok := junctions[j.key]; ok {
-			continue
-		}
-
-		junctions[j.key] = j
+		junctions = append(junctions, j)
+		junctionMap[key] = j
 	}
 
-	// Find closest neighbors
-	for _, current := range junctions {
-		for _, candidate := range junctions {
-			if current.key == candidate.key {
-				continue
+	// Generate all unique pairs
+	pairs := make([]pair, 0)
+	for i := 0; i < len(junctions); i++ {
+		for k := i + 1; k < len(junctions); k++ {
+			p := pair{
+				a:        junctions[i],
+				b:        junctions[k],
+				distance: junctions[i].distanceTo(junctions[k]),
 			}
-			dist := current.distanceTo(candidate)
-			if dist < current.closestDistance {
-				current.closestDistance = dist
-				current.closestNeighbor = candidate
-			}
+			pairs = append(pairs, p)
 		}
 	}
 
-	visited := make(map[string]struct{})
-	for key, j := range junctions {
-		if _, ok := visited[key]; ok {
-			continue
-		}
+	// Sort pairs by distance
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].distance < pairs[j].distance
+	})
 
-		circuit := make(map[string]*junction)
-		current := j
-		for {
-			if _, ok := circuit[current.key]; ok {
-				break
-			}
-			circuit[current.key] = current
-			visited[current.key] = struct{}{}
-			current = current.closestNeighbor
-		}
-		circuits = append(circuits, circuit)
+	// Initialize DSU
+	parents := make(map[string]string)
+	for _, j := range junctions {
+		parents[j.key] = j.key
 	}
 
-	topThreeSizes := []map[string]*junction{{}, {}, {}}
+	// Process the N shortest connections, where N is the mergeLimit
+	for i, p := range pairs {
+		if i >= mergeLimit {
+			break
+		}
+		if find(parents, p.a.key) != find(parents, p.b.key) {
+			union(parents, p.a.key, p.b.key)
+		}
+	}
+
+	// Group junctions by their circuit root
+	circuits := make(map[string][]string)
+	for _, j := range junctions {
+		root := find(parents, j.key)
+		circuits[root] = append(circuits[root], j.key)
+	}
+
+	// Find the sizes of all circuits
+	allSizes := make([]int, 0, len(circuits))
 	for _, circuit := range circuits {
-		fmt.Println("Circuit:", circuit)
-		size := len(circuit)
-		if size > len(topThreeSizes[0]) {
-			topThreeSizes[2] = topThreeSizes[1]
-			topThreeSizes[1] = topThreeSizes[0]
-			topThreeSizes[0] = circuit
-		} else if size > len(topThreeSizes[1]) {
-			topThreeSizes[2] = topThreeSizes[1]
-			topThreeSizes[1] = circuit
-		} else if size > len(topThreeSizes[2]) {
-			topThreeSizes[2] = circuit
-		}
+		allSizes = append(allSizes, len(circuit))
 	}
 
-	fmt.Println("Top three circuit sizes:", topThreeSizes)
-	result := len(topThreeSizes[0]) * len(topThreeSizes[1]) * len(topThreeSizes[2])
-	fmt.Println("Result:", result)
+	// Sort sizes in descending order
+	sort.Sort(sort.Reverse(sort.IntSlice(allSizes)))
+
+	if len(allSizes) < 3 {
+		fmt.Println("Error: Less than three circuits found.")
+		return
+	}
+
+	// Multiply the sizes of the three largest circuits
+	topThree := allSizes[:3]
+	result := topThree[0] * topThree[1] * topThree[2]
+
+	fmt.Println("Sizes of the three largest circuits:", topThree)
+	fmt.Println("Final Result:", result)
 }
