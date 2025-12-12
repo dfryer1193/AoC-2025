@@ -73,50 +73,49 @@ func getPathsOut(nodes map[string]*node) int {
 	}
 
 	totalPaths := 0
-	svrToFft := getTo(svr, "fft", nodes, make(map[string]struct{}))
-	fftToDac := getTo(nodes["fft"], "dac", nodes, make(map[string]struct{}))
-	dacToOut := getTo(nodes["dac"], "out", nodes, make(map[string]struct{}))
-	//
-	//	svrToDac := getTo(svr, "dac", nodes, make(map[string]struct{}))
-	//	fmt.Println("Paths from svr to dac:", svrToDac)
-	//	dacToFft := getTo(nodes["dac"], "fft", nodes, make(map[string]struct{}))
-	//	fmt.Println("Paths from dac to fft:", dacToFft)
-	//	fftToOut := getTo(nodes["fft"], "out", nodes, make(map[string]struct{}))
-	//	fmt.Println("Paths from fft to out:", fftToOut)
+
+	memoToFft := make(map[string]int)
+	memoToDac := make(map[string]int)
+	memoToOut := make(map[string]int)
+
+	svrToFft := getTo(svr, "fft", nodes, memoToFft)
+	fftToDac := getTo(nodes["fft"], "dac", nodes, memoToDac)
+	dacToOut := getTo(nodes["dac"], "out", nodes, memoToOut)
+
+	svrToDac := getTo(svr, "dac", nodes, memoToDac)
+	dacToFft := getTo(nodes["dac"], "fft", nodes, memoToFft)
+	fftToOut := getTo(nodes["fft"], "out", nodes, memoToOut)
 
 	totalPaths += svrToFft * fftToDac * dacToOut
-	//	totalPaths += svrToDac * dacToFft * fftToOut
+	totalPaths += svrToDac * dacToFft * fftToOut
 
 	return totalPaths
 }
 
-func getTo(n *node, target string, nodes map[string]*node, noPathToTarget map[string]struct{}) int {
+func getTo(n *node, target string, nodes map[string]*node, memo map[string]int) int {
 	if n.name == target {
 		return 1
 	}
 
+	if count, ok := memo[n.name]; ok {
+		return count
+	}
+
 	if len(n.children) == 0 {
-		noPathToTarget[n.name] = struct{}{}
+		memo[n.name] = 0
 		return 0
 	}
 
 	childrenLeadingOut := 0
 	for _, childName := range n.children {
-		if _, ok := noPathToTarget[childName]; ok {
-			continue
-		}
-
 		childNode, ok := nodes[childName]
 		if !ok {
 			continue
 		}
 
-		childrenLeadingOut += getTo(childNode, target, nodes, noPathToTarget)
+		childrenLeadingOut += getTo(childNode, target, nodes, memo)
 	}
 
-	if childrenLeadingOut == 0 {
-		noPathToTarget[n.name] = struct{}{}
-	}
-
+	memo[n.name] = childrenLeadingOut
 	return childrenLeadingOut
 }
